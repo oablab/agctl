@@ -8,6 +8,7 @@ pub async fn handle(action: RuntimeAction, region_override: Option<String>) -> R
     match action {
         RuntimeAction::Apply { file } => apply(&file, region_override).await,
         RuntimeAction::Get { name } => get(&name, region_override).await,
+        RuntimeAction::Export { name, file } => export(&name, file.as_deref(), region_override).await,
         RuntimeAction::List => list(region_override).await,
         RuntimeAction::Delete { name, yes } => delete(&name, yes, region_override).await,
         RuntimeAction::Restart { name } => restart(&name, region_override).await,
@@ -115,6 +116,72 @@ async fn apply(file: &str, region_override: Option<String>) -> Result<()> {
         store.aliases.insert(spec.metadata.name.clone(), arn.to_string());
         store.save()?;
         println!("   Alias set: {} → {}", spec.metadata.name, arn);
+    }
+
+    Ok(())
+}
+
+async fn export(name: &str, output: Option<&str>, region_override: Option<String>) -> Result<()> {
+    let store = AliasStore::load();
+    let arn = store.resolve(name);
+    let region = region_override.or_else(|| extract_region(&arn));
+    let client = make_client(region).await;
+
+    let id = arn.rsplit('/').next().unwrap_or(&arn);
+    let rt = client.get_agent_runtime().agent_runtime_id(id).send().await?;
+
+    // Extract image from artifact
+    let image = rt.agent_runtime_artifact()
+        .and_then(|a| a.as_container_configuration().ok())
+        .map(|c| c.container_uri().to_string())
+        .unwrap_or_default();
+
+    let role = rt.role_arn().to_string();
+
+    let network = rt.network_configuration()
+        .map(|n| format!("{:?}", n.network_mode()))
+        .unwrap_or_else(|| "PUBLIC".into());
+
+    // Build filesystem config
+    let fs = rt.filesystem_configurations()
+        .iter()
+        .find_map(|f| {
+            if let control::types::FilesystemConfiguration::SessionStorage(s) = f {
+                Some(s.mount_path().to_string())
+            } else {
+                None
+            }
+        });
+
+    // Build env vars
+    let env: std::collections::HashMap<String, String> = rt.environment_variables()
+        .map(|e| e.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+        .unwrap_or_default();
+
+    let spec = crate::config::RuntimeSpec {
+        metadata: crate::config::Metadata {
+            name: rt.agent_runtime_name().to_string(),
+            region: extract_region(&arn),
+        },
+        spec: crate::config::Spec {
+            image,
+            role,
+            network,
+            filesystem: fs.map(|mount| crate::config::FilesystemConfig {
+                session_storage: Some(mount),
+            }),
+            env,
+        },
+    };
+
+    let yaml = serde_yaml::to_string(&spec)?;
+
+    match output {
+        Some(path) => {
+            std::fs::write(path, &yaml)?;
+            eprintln!("✅ Exported {} → {path}", rt.agent_runtime_name());
+        }
+        None => print!("{yaml}"),
     }
 
     Ok(())

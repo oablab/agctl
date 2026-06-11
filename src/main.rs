@@ -56,6 +56,14 @@ enum RuntimeAction {
         /// Runtime name or alias
         name: String,
     },
+    /// Export a runtime as YAML spec
+    Export {
+        /// Runtime name or alias
+        name: String,
+        /// Output file (default: stdout)
+        #[arg(short, long)]
+        file: Option<String>,
+    },
     /// List all runtimes
     List,
     /// Delete a runtime
