@@ -93,21 +93,7 @@ enum AliasAction {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // If invoked as "agcrt", auto-prefix "runtime" subcommand
-    let args: Vec<String> = std::env::args().collect();
-    let bin_name = std::path::Path::new(&args[0])
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("agctl");
-
-    let cli = if bin_name == "agcrt" {
-        // Inject "runtime" as the subcommand
-        let mut new_args = vec!["agctl".to_string(), "runtime".to_string()];
-        new_args.extend(args[1..].iter().cloned());
-        Cli::parse_from(new_args)
-    } else {
-        Cli::parse()
-    };
+    let cli = Cli::parse();
 
     match cli.command {
         Commands::Runtime { action } => commands::runtime::handle(action, cli.region).await,

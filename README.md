@@ -49,11 +49,15 @@ Aliases are stored in `~/.config/agctl/aliases.json`. Auto-set on `runtime apply
 
 ### Shorthand: `agcrt`
 
-Symlink `agctl` as `agcrt` to skip the `runtime` subcommand:
+Add to your shell profile:
 
 ```bash
-ln -s $(which agctl) ~/.local/bin/agcrt
+alias agcrt='agctl runtime'
+```
 
+Then:
+
+```bash
 agcrt list              # same as: agctl runtime list
 agcrt apply -f kiro.yaml   # same as: agctl runtime apply -f kiro.yaml
 agcrt get kiro          # same as: agctl runtime get kiro
