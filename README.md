@@ -24,8 +24,8 @@ curl -fsSL https://github.com/oablab/agctl/releases/latest/download/agctl-linux-
 metadata:
   name: kiro_coding_agent
 spec:
-  image: 903779448426.dkr.ecr.us-east-1.amazonaws.com/agentcore-kiro:latest
-  role: arn:aws:iam::903779448426:role/agentcore-kiro-us-east-1-role
+  image: <ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/agentcore-kiro:latest
+  role: arn:aws:iam::<ACCOUNT>:role/agentcore-kiro-role
   network: PUBLIC
   filesystem:
     sessionStorage: /mnt/agent
@@ -53,7 +53,7 @@ agctl exec kiro --session-id my-session-00000000000000 "whoami"
 ### Aliases
 
 ```bash
-agctl alias set kiro arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/kiro_coding_agent-ABC123
+agctl alias set kiro arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT>:runtime/kiro_coding_agent-ABC123
 agctl alias list
 agctl alias remove kiro
 ```
