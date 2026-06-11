@@ -47,20 +47,21 @@ agctl alias remove kiro
 
 Aliases are stored in `~/.config/agctl/aliases.json`. Auto-set on `runtime apply`.
 
-### Shorthand: `agcrt`
+### Shorthand: `agcrt` / `agcsh`
 
-Add to your shell profile:
+Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
 
 ```bash
 alias agcrt='agctl runtime'
+agcsh() { agctl exec "$1" bash; }
 ```
 
 Then:
 
 ```bash
-agcrt list              # same as: agctl runtime list
-agcrt apply -f kiro.yaml   # same as: agctl runtime apply -f kiro.yaml
-agcrt get kiro          # same as: agctl runtime get kiro
+agcrt list                 # agctl runtime list
+agcrt apply -f kiro.yaml   # agctl runtime apply -f kiro.yaml
+agcsh kiro                 # agctl exec kiro bash (interactive shell)
 ```
 
 ## How it works
