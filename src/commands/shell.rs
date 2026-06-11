@@ -89,16 +89,23 @@ pub async fn open_shell(
         let _ = ws_write.send(Message::Binary(frame.into())).await;
     }
 
+    // cd to the HOME of PID 1, then print a marker so we know when to start showing output
+    let cd_home = b" cd $(cat /proc/1/environ 2>/dev/null | tr '\\0' '\\n' | grep ^HOME= | cut -d= -f2- || echo /home/agent); printf '\\x07READY\\x07'\n";
+    let mut frame = Vec::with_capacity(1 + cd_home.len());
+    frame.push(0x00);
+    frame.extend_from_slice(cd_home);
+    let _ = ws_write.send(Message::Binary(frame.into())).await;
+
+    // Suppress output until we see the READY marker
+    let mut ready = false;
     loop {
         tokio::select! {
-            Some(data) = stdin_rx.recv() => {
-                if data.contains(&0x1d) { // Ctrl+]
-                    // Send close frame (0xFF)
+            Some(data) = stdin_rx.recv(), if ready => {
+                if data.contains(&0x1d) {
                     let _ = ws_write.send(Message::Binary(vec![0xFF].into())).await;
                     eprintln!("\r\nDetached.");
                     break;
                 }
-                // Frame type 0x00 = stdin
                 let mut frame = Vec::with_capacity(1 + data.len());
                 frame.push(0x00);
                 frame.extend_from_slice(&data);
@@ -108,28 +115,21 @@ pub async fn open_shell(
                 match msg {
                     Some(Ok(Message::Binary(data))) => {
                         if data.len() > 1 {
-                            // First byte is frame type: 0x01=stdout, 0x02=stderr, etc.
-                            // Skip it and write the rest
-                            let frame_type = data[0];
                             let payload = &data[1..];
-                            match frame_type {
-                                0x01 | 0x02 => {
-                                    stdout.write_all(payload).await?;
-                                    stdout.flush().await?;
+                            if !ready {
+                                // Check for READY marker (BEL + READY + BEL)
+                                if let Ok(s) = std::str::from_utf8(payload) {
+                                    if s.contains("\x07READY\x07") {
+                                        ready = true;
+                                    }
                                 }
-                                _ => {
-                                    // Other frame types (status, etc.) - write as-is for now
-                                    stdout.write_all(payload).await?;
-                                    stdout.flush().await?;
-                                }
+                            } else {
+                                stdout.write_all(payload).await?;
+                                stdout.flush().await?;
                             }
                         }
                     }
-                    Some(Ok(Message::Text(text))) => {
-                        // Status/metadata frames come as text
-                        stdout.write_all(text.as_bytes()).await?;
-                        stdout.flush().await?;
-                    }
+                    Some(Ok(Message::Text(_))) => {} // suppress metadata
                     Some(Ok(Message::Close(frame))) => {
                         if let Some(f) = &frame {
                             let code: u16 = f.code.into();
