@@ -15,8 +15,17 @@ anyhow = "1"
 aws-config = "1"
 aws-sdk-bedrockagentcorecontrol = "1"
 aws-sdk-bedrockagentcore = "1"
+aws-sigv4 = "1"
+aws-credential-types = "1"
+aws-smithy-runtime-api = "1"
 dirs = "6"
 tabled = "0.18"
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
+http = "1"
+crossterm = "0.28"
+futures-util = "0.3"
+url = "2"
+urlencoding = "2"
 
 [profile.release]
 strip = true
