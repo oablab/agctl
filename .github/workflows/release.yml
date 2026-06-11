@@ -1,9 +1,12 @@
 name: Release
+
 on:
   push:
     tags: ["v*"]
+
 env:
   CARGO_TERM_COLOR: always
+
 jobs:
   build:
     strategy:
@@ -23,16 +26,36 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Set version from tag
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          sed -i.bak "s/^version = .*/version = \"${VERSION}\"/" Cargo.toml
+          rm -f Cargo.toml.bak
+          echo "Building version ${VERSION}"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - name: Install cross tools
+
+      - name: Install cross-compilation tools
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
-          sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-      - run: cargo build --release --target ${{ matrix.target }}
-      - run: tar czf /tmp/${{ matrix.name }}.tar.gz -C target/${{ matrix.target }}/release agctl
-      - uses: softprops/action-gh-release@v2
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf /tmp/${{ matrix.name }}.tar.gz agctl
+          ls -lh /tmp/${{ matrix.name }}.tar.gz
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
         with:
           files: /tmp/${{ matrix.name }}.tar.gz
