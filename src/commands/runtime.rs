@@ -218,13 +218,23 @@ async fn list(region_override: Option<String>) -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<30} {:<10} {:<8}", "NAME", "STATUS", "VERSION");
+    // Build reverse map: ARN → alias name
+    let store = AliasStore::load();
+    let reverse: std::collections::HashMap<&str, &str> = store
+        .aliases
+        .iter()
+        .map(|(name, arn)| (arn.as_str(), name.as_str()))
+        .collect();
+
+    println!("{:<30} {:<10} {:<8} {}", "NAME", "STATUS", "VERSION", "ALIAS");
     for rt in resp.agent_runtimes() {
+        let alias = reverse.get(rt.agent_runtime_arn()).copied().unwrap_or("");
         println!(
-            "{:<30} {:<10} {:<8}",
+            "{:<30} {:<10} {:<8} {}",
             rt.agent_runtime_name(),
             format!("{:?}", rt.status()),
             rt.agent_runtime_version(),
+            alias,
         );
     }
     Ok(())
