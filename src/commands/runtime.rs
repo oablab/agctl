@@ -160,7 +160,7 @@ async fn export(name: &str, output: Option<&str>, region_override: Option<String
     let role = rt.role_arn().to_string();
 
     let network = rt.network_configuration()
-        .map(|n| format!("{:?}", n.network_mode()))
+        .map(|n| n.network_mode().as_str().to_string())
         .unwrap_or_else(|| "PUBLIC".into());
 
     // Build filesystem config
