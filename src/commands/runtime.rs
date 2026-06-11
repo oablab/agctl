@@ -144,9 +144,8 @@ async fn apply(file: &str, region_override: Option<String>) -> Result<()> {
 async fn export(name: &str, output: Option<&str>, region_override: Option<String>) -> Result<()> {
     let store = AliasStore::load();
     let arn = store.resolve(name);
-    let region = region_override
-        .or_else(|| extract_region(&arn))
-        .or_else(|| Some("us-east-1".to_string()));
+    let cfg = crate::config::AgctlConfig::load();
+    let region = Some(cfg.resolve_region(region_override.as_deref(), Some(&arn)));
     let client = make_client(region).await;
 
     let id = resolve_runtime_id(name, &client).await?;
@@ -212,7 +211,8 @@ async fn export(name: &str, output: Option<&str>, region_override: Option<String
 async fn get(name: &str, region_override: Option<String>) -> Result<()> {
     let store = AliasStore::load();
     let arn = store.resolve(name);
-    let region = region_override.or_else(|| extract_region(&arn)).or_else(|| Some("us-east-1".to_string()));
+    let cfg = crate::config::AgctlConfig::load();
+    let region = Some(cfg.resolve_region(region_override.as_deref(), Some(&arn)));
     let client = make_client(region).await;
 
     let id = resolve_runtime_id(name, &client).await?;
@@ -264,7 +264,8 @@ async fn list(region_override: Option<String>) -> Result<()> {
 async fn delete(name: &str, yes: bool, region_override: Option<String>) -> Result<()> {
     let store = AliasStore::load();
     let arn = store.resolve(name);
-    let region = region_override.or_else(|| extract_region(&arn)).or_else(|| Some("us-east-1".to_string()));
+    let cfg = crate::config::AgctlConfig::load();
+    let region = Some(cfg.resolve_region(region_override.as_deref(), Some(&arn)));
     let client = make_client(region).await;
 
     let id = resolve_runtime_id(name, &client).await?;
