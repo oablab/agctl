@@ -108,6 +108,12 @@ curl -fsSL https://github.com/oablab/agctl/releases/latest/download/agctl-linux-
 curl -fsSL https://github.com/oablab/agctl/releases/latest/download/agctl-linux-amd64.tar.gz | tar xz -C ~/.local/bin
 ```
 
+## Known Limitations
+
+- **Runtime env vars don't propagate to interactive shells.** Env vars set via `spec.env` (or `update_agent_runtime`) only apply to PID 1 (container entrypoint). WebSocket PTY shells spawn a separate bash process that doesn't inherit them. Workaround: `eval $(cat /proc/1/environ | tr '\0' '\n' | grep -v ^HOME= | sed 's/^/export /')` inside the shell.
+- **Interactive shell requires PTY.** `agctl exec --it` must be run from a real terminal — pipes and scripts won't work.
+- **Session ID must be ≥33 characters.** AgentCore rejects shorter values.
+
 ## License
 
 MIT
