@@ -23,6 +23,26 @@ async fn make_client(region: Option<String>) -> control::Client {
     control::Client::new(&config.load().await)
 }
 
+/// Resolve a name to a runtime ID: alias → ARN → runtime ID, or match by runtime name.
+async fn resolve_runtime_id(name: &str, client: &control::Client) -> Result<String> {
+    let store = AliasStore::load();
+    let resolved = store.resolve(name);
+
+    // If it's an ARN, extract the ID
+    if resolved.starts_with("arn:") {
+        return Ok(resolved.rsplit('/').next().unwrap_or(&resolved).to_string());
+    }
+
+    // Otherwise, try matching by runtime name
+    let resp = client.list_agent_runtimes().send().await?;
+    if let Some(rt) = resp.agent_runtimes().iter().find(|r| r.agent_runtime_name() == name) {
+        return Ok(rt.agent_runtime_id().to_string());
+    }
+
+    // Last resort: assume it's a raw runtime ID
+    Ok(resolved)
+}
+
 async fn apply(file: &str, region_override: Option<String>) -> Result<()> {
     let spec = RuntimeSpec::from_file(file)?;
     let region = region_override.unwrap_or_else(|| spec.region());
@@ -127,8 +147,8 @@ async fn export(name: &str, output: Option<&str>, region_override: Option<String
     let region = region_override.or_else(|| extract_region(&arn));
     let client = make_client(region).await;
 
-    let id = arn.rsplit('/').next().unwrap_or(&arn);
-    let rt = client.get_agent_runtime().agent_runtime_id(id).send().await?;
+    let id = resolve_runtime_id(name, &client).await?;
+    let rt = client.get_agent_runtime().agent_runtime_id(&id).send().await?;
 
     // Extract image from artifact
     let image = rt.agent_runtime_artifact()
@@ -193,9 +213,8 @@ async fn get(name: &str, region_override: Option<String>) -> Result<()> {
     let region = region_override.or_else(|| extract_region(&arn));
     let client = make_client(region).await;
 
-    // Extract ID from ARN
-    let id = arn.rsplit('/').next().unwrap_or(&arn);
-    let rt = client.get_agent_runtime().agent_runtime_id(id).send().await?;
+    let id = resolve_runtime_id(name, &client).await?;
+    let rt = client.get_agent_runtime().agent_runtime_id(&id).send().await?;
 
     println!("Name:    {}", rt.agent_runtime_name());
     println!("ID:      {}", rt.agent_runtime_id());
@@ -246,7 +265,7 @@ async fn delete(name: &str, yes: bool, region_override: Option<String>) -> Resul
     let region = region_override.or_else(|| extract_region(&arn));
     let client = make_client(region).await;
 
-    let id = arn.rsplit('/').next().unwrap_or(&arn);
+    let id = resolve_runtime_id(name, &client).await?;
 
     if !yes {
         eprint!("Delete runtime '{name}' ({id})? [y/N] ");
