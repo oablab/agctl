@@ -1,19 +1,6 @@
 # agctl
 
-Declarative CLI for [Amazon Bedrock AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime.html) operations.
-
-## Install
-
-```bash
-# macOS (Apple Silicon)
-curl -fsSL https://github.com/oablab/agctl/releases/latest/download/agctl-darwin-arm64.tar.gz | tar xz -C ~/.local/bin
-
-# Linux (arm64)
-curl -fsSL https://github.com/oablab/agctl/releases/latest/download/agctl-linux-arm64.tar.gz | tar xz -C ~/.local/bin
-
-# Linux (amd64)
-curl -fsSL https://github.com/oablab/agctl/releases/latest/download/agctl-linux-amd64.tar.gz | tar xz -C ~/.local/bin
-```
+Just as [ecsctl](https://github.com/oablab/ecsctl), we love kubectl-style declarative administration. Managing AgentCore runtimes via raw AWS CLI commands with 10+ flags and JSON blobs is painful — so we built `agctl` that lets you declare your agent runtime in a YAML file and apply it with a single command.
 
 ## Usage
 
@@ -60,6 +47,18 @@ agctl alias remove kiro
 
 Aliases are stored in `~/.config/agctl/aliases.json`. Auto-set on `runtime apply`.
 
+### Shorthand: `agcrt`
+
+Symlink `agctl` as `agcrt` to skip the `runtime` subcommand:
+
+```bash
+ln -s $(which agctl) ~/.local/bin/agcrt
+
+agcrt list              # same as: agctl runtime list
+agcrt apply -f kiro.yaml   # same as: agctl runtime apply -f kiro.yaml
+agcrt get kiro          # same as: agctl runtime get kiro
+```
+
 ## How it works
 
 ```
@@ -79,6 +78,19 @@ agctl exec kiro "command"
 
 - AWS credentials configured (`~/.aws/credentials`, env vars, or IAM role)
 - Permissions: `bedrock-agentcore:*` (or scoped to specific runtime ARNs)
+
+## Install
+
+```bash
+# macOS (Apple Silicon)
+curl -fsSL https://github.com/oablab/agctl/releases/latest/download/agctl-darwin-arm64.tar.gz | tar xz -C ~/.local/bin
+
+# Linux (arm64)
+curl -fsSL https://github.com/oablab/agctl/releases/latest/download/agctl-linux-arm64.tar.gz | tar xz -C ~/.local/bin
+
+# Linux (amd64)
+curl -fsSL https://github.com/oablab/agctl/releases/latest/download/agctl-linux-amd64.tar.gz | tar xz -C ~/.local/bin
+```
 
 ## License
 
