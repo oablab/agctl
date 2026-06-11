@@ -50,6 +50,9 @@ enum RuntimeAction {
         /// Path to YAML spec file
         #[arg(short, long)]
         file: String,
+        /// Wait until runtime reaches READY state
+        #[arg(long)]
+        wait: bool,
     },
     /// Get runtime status
     Get {
@@ -63,6 +66,9 @@ enum RuntimeAction {
         /// Output file (default: stdout)
         #[arg(short, long)]
         file: Option<String>,
+        /// Output as JSON instead of YAML
+        #[arg(long)]
+        json: bool,
     },
     /// List all runtimes
     List,

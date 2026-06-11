@@ -6,9 +6,9 @@ use crate::RuntimeAction;
 
 pub async fn handle(action: RuntimeAction, region_override: Option<String>) -> Result<()> {
     match action {
-        RuntimeAction::Apply { file } => apply(&file, region_override).await,
+        RuntimeAction::Apply { file, wait } => apply(&file, wait, region_override).await,
         RuntimeAction::Get { name } => get(&name, region_override).await,
-        RuntimeAction::Export { name, file } => export(&name, file.as_deref(), region_override).await,
+        RuntimeAction::Export { name, file, json } => export(&name, file.as_deref(), json, region_override).await,
         RuntimeAction::List => list(region_override).await,
         RuntimeAction::Delete { name, yes } => delete(&name, yes, region_override).await,
         RuntimeAction::Restart { name } => restart(&name, region_override).await,
@@ -43,7 +43,7 @@ async fn resolve_runtime_id(name: &str, client: &control::Client) -> Result<Stri
     Ok(resolved)
 }
 
-async fn apply(file: &str, region_override: Option<String>) -> Result<()> {
+async fn apply(file: &str, wait: bool, region_override: Option<String>) -> Result<()> {
     let spec = RuntimeSpec::from_file(file)?;
     let region = region_override.unwrap_or_else(|| spec.region());
     let client = make_client(Some(region.clone())).await;
@@ -138,10 +138,37 @@ async fn apply(file: &str, region_override: Option<String>) -> Result<()> {
         println!("   Alias set: {} → {}", spec.metadata.name, arn);
     }
 
+    // Wait for READY if requested
+    if wait {
+        let wait_id = if let Some(rt) = found {
+            rt.agent_runtime_id().to_string()
+        } else {
+            let store = AliasStore::load();
+            let arn = store.resolve(&spec.metadata.name);
+            arn.rsplit('/').next().unwrap_or(&arn).to_string()
+        };
+        eprint!("⏳ Waiting for READY...");
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            let status = client.get_agent_runtime()
+                .agent_runtime_id(&wait_id)
+                .send().await?;
+            let s = format!("{:?}", status.status());
+            match s.as_str() {
+                "Ready" => { eprintln!(" ✅"); break; }
+                "CreateFailed" | "UpdateFailed" => {
+                    eprintln!(" ❌ {s}");
+                    anyhow::bail!("Runtime entered {s} state");
+                }
+                _ => eprint!("."),
+            }
+        }
+    }
+
     Ok(())
 }
 
-async fn export(name: &str, output: Option<&str>, region_override: Option<String>) -> Result<()> {
+async fn export(name: &str, output: Option<&str>, json: bool, region_override: Option<String>) -> Result<()> {
     let store = AliasStore::load();
     let arn = store.resolve(name);
     let cfg = crate::config::AgctlConfig::load();
@@ -195,14 +222,18 @@ async fn export(name: &str, output: Option<&str>, region_override: Option<String
         },
     };
 
-    let yaml = serde_yaml::to_string(&spec)?;
+    let out = if json {
+        serde_json::to_string_pretty(&spec)?
+    } else {
+        serde_yaml::to_string(&spec)?
+    };
 
     match output {
         Some(path) => {
-            std::fs::write(path, &yaml)?;
+            std::fs::write(path, &out)?;
             eprintln!("✅ Exported {} → {path}", rt.agent_runtime_name());
         }
-        None => print!("{yaml}"),
+        None => print!("{out}"),
     }
 
     Ok(())
