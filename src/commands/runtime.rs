@@ -144,7 +144,9 @@ async fn apply(file: &str, region_override: Option<String>) -> Result<()> {
 async fn export(name: &str, output: Option<&str>, region_override: Option<String>) -> Result<()> {
     let store = AliasStore::load();
     let arn = store.resolve(name);
-    let region = region_override.or_else(|| extract_region(&arn));
+    let region = region_override
+        .or_else(|| extract_region(&arn))
+        .or_else(|| Some("us-east-1".to_string()));
     let client = make_client(region).await;
 
     let id = resolve_runtime_id(name, &client).await?;
@@ -181,7 +183,7 @@ async fn export(name: &str, output: Option<&str>, region_override: Option<String
     let spec = crate::config::RuntimeSpec {
         metadata: crate::config::Metadata {
             name: rt.agent_runtime_name().to_string(),
-            region: extract_region(&arn),
+            region: extract_region(rt.agent_runtime_arn()),
         },
         spec: crate::config::Spec {
             image,
@@ -210,7 +212,7 @@ async fn export(name: &str, output: Option<&str>, region_override: Option<String
 async fn get(name: &str, region_override: Option<String>) -> Result<()> {
     let store = AliasStore::load();
     let arn = store.resolve(name);
-    let region = region_override.or_else(|| extract_region(&arn));
+    let region = region_override.or_else(|| extract_region(&arn)).or_else(|| Some("us-east-1".to_string()));
     let client = make_client(region).await;
 
     let id = resolve_runtime_id(name, &client).await?;
@@ -262,7 +264,7 @@ async fn list(region_override: Option<String>) -> Result<()> {
 async fn delete(name: &str, yes: bool, region_override: Option<String>) -> Result<()> {
     let store = AliasStore::load();
     let arn = store.resolve(name);
-    let region = region_override.or_else(|| extract_region(&arn));
+    let region = region_override.or_else(|| extract_region(&arn)).or_else(|| Some("us-east-1".to_string()));
     let client = make_client(region).await;
 
     let id = resolve_runtime_id(name, &client).await?;
