@@ -49,19 +49,28 @@ Aliases are stored in `~/.config/agctl/aliases.json`. Auto-set on `runtime apply
 
 ### Shorthand: `agcrt` / `agcsh`
 
-Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
+Add to `~/.zshrc` (or `~/.bashrc`):
 
 ```bash
 alias agcrt='agctl runtime'
-agcsh() { agctl exec "$1" "${2:-bash -c 'echo Connected && exec bash'}"; }
+agcsh() {
+  if [ $# -gt 1 ]; then
+    agctl exec "$@"
+  else
+    agctl exec --it "$1" --session-id "agcsh-${1}-$(date +%s)00000000000000"
+  fi
+}
 ```
 
 Then:
 
 ```bash
+source ~/.zshrc   # reload
+
 agcrt list                 # agctl runtime list
 agcrt apply -f kiro.yaml   # agctl runtime apply -f kiro.yaml
-agcsh kiro "whoami"        # one-shot command in the runtime
+agcsh kiro                 # interactive PTY shell
+agcsh kiro "whoami"        # one-shot command
 ```
 
 > **Note:** Interactive PTY (`agctl exec --it`) is planned for v0.2.0 via WebSocket shell API.
