@@ -53,7 +53,7 @@ Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
 
 ```bash
 alias agcrt='agctl runtime'
-agcsh() { agctl exec "$1" bash; }
+agcsh() { agctl exec "$1" "${2:-bash -c 'echo Connected && exec bash'}"; }
 ```
 
 Then:
@@ -61,8 +61,10 @@ Then:
 ```bash
 agcrt list                 # agctl runtime list
 agcrt apply -f kiro.yaml   # agctl runtime apply -f kiro.yaml
-agcsh kiro                 # agctl exec kiro bash (interactive shell)
+agcsh kiro "whoami"        # one-shot command in the runtime
 ```
+
+> **Note:** Interactive PTY (`agctl exec --it`) is planned for v0.2.0 via WebSocket shell API.
 
 ## How it works
 
